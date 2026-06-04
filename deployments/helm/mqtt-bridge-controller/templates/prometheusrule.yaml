@@ -1,0 +1,125 @@
+{{- if .Values.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "mqtt-bridge-controller.fullname" . }}
+  namespace: {{ .Values.prometheusRule.namespace | default .Release.Namespace }}
+  labels:
+    {{- include "mqtt-bridge-controller.labels" . | nindent 4 }}
+    {{- with .Values.prometheusRule.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.prometheusRule.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  groups:
+    {{- if .Values.prometheusRule.defaultRules.enabled }}
+    - name: mqtt-bridge-controller.rules
+      rules:
+        {{- if .Values.prometheusRule.defaultRules.bridgeDisconnected.enabled }}
+        # Fires when a bridge has been disconnected or in error state for too long.
+        - alert: MQTTBridgeDisconnected
+          expr: mqttbridge_connection_state == 0
+          for: {{ .Values.prometheusRule.defaultRules.bridgeDisconnected.for | default "5m" }}
+          labels:
+            severity: {{ .Values.prometheusRule.defaultRules.bridgeDisconnected.severity | default "warning" }}
+            {{- with .Values.prometheusRule.defaultRules.bridgeDisconnected.additionalLabels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          annotations:
+            summary: "MQTT bridge {{ "{{" }} $labels.bridge {{ "}}" }} is disconnected"
+            description: >-
+              MQTT bridge {{ "{{" }} $labels.bridge {{ "}}" }} in namespace {{ "{{" }} $labels.namespace {{ "}}" }}
+              has been disconnected from {{ "{{" }} $labels.host {{ "}}" }} for more than
+              {{ .Values.prometheusRule.defaultRules.bridgeDisconnected.for | default "5m" }}.
+        {{- end }}
+
+        {{- if .Values.prometheusRule.defaultRules.highReconnectRate.enabled }}
+        # Fires when a bridge is reconnecting more than once per 5 minutes
+        # (usually indicates a flapping network or broker issue).
+        - alert: MQTTBridgeHighReconnectRate
+          expr: rate(mqttbridge_reconnect_total[10m]) > {{ .Values.prometheusRule.defaultRules.highReconnectRate.threshold | default "0.033" }}
+          for: {{ .Values.prometheusRule.defaultRules.highReconnectRate.for | default "10m" }}
+          labels:
+            severity: {{ .Values.prometheusRule.defaultRules.highReconnectRate.severity | default "warning" }}
+            {{- with .Values.prometheusRule.defaultRules.highReconnectRate.additionalLabels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          annotations:
+            summary: "MQTT bridge {{ "{{" }} $labels.bridge {{ "}}" }} is reconnecting frequently"
+            description: >-
+              MQTT bridge {{ "{{" }} $labels.bridge {{ "}}" }} in namespace {{ "{{" }} $labels.namespace {{ "}}" }}
+              has reconnected {{ "{{" }} printf "%.1f" (mul (rate (mqttbridge_reconnect_total[10m])) 60) {{ "}}" }} times/min
+              over the last 10 minutes.
+        {{- end }}
+
+        {{- if .Values.prometheusRule.defaultRules.noMessagesReceived.enabled }}
+        # Fires when a connected bridge receives no messages for an extended period.
+        - alert: MQTTBridgeNoMessagesReceived
+          expr: >-
+            (mqttbridge_connection_state == 1)
+            and
+            (increase(mqttbridge_messages_received_total[{{ .Values.prometheusRule.defaultRules.noMessagesReceived.window | default "1h" }}]) == 0)
+          for: {{ .Values.prometheusRule.defaultRules.noMessagesReceived.for | default "0m" }}
+          labels:
+            severity: {{ .Values.prometheusRule.defaultRules.noMessagesReceived.severity | default "info" }}
+            {{- with .Values.prometheusRule.defaultRules.noMessagesReceived.additionalLabels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          annotations:
+            summary: "MQTT bridge {{ "{{" }} $labels.bridge {{ "}}" }} received no messages"
+            description: >-
+              MQTT bridge {{ "{{" }} $labels.bridge {{ "}}" }} in namespace {{ "{{" }} $labels.namespace {{ "}}" }}
+              is connected but has not received any messages in the last
+              {{ .Values.prometheusRule.defaultRules.noMessagesReceived.window | default "1h" }}.
+        {{- end }}
+
+        {{- if .Values.prometheusRule.defaultRules.slowMessageProcessing.enabled }}
+        # Fires when the 99th-percentile message processing latency exceeds threshold.
+        - alert: MQTTBridgeSlowMessageProcessing
+          expr: >-
+            histogram_quantile(0.99,
+              sum by (bridge, namespace, topic, le) (
+                rate(mqttbridge_message_processing_seconds_bucket[5m])
+              )
+            ) > {{ .Values.prometheusRule.defaultRules.slowMessageProcessing.threshold | default "1.0" }}
+          for: {{ .Values.prometheusRule.defaultRules.slowMessageProcessing.for | default "5m" }}
+          labels:
+            severity: {{ .Values.prometheusRule.defaultRules.slowMessageProcessing.severity | default "warning" }}
+            {{- with .Values.prometheusRule.defaultRules.slowMessageProcessing.additionalLabels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          annotations:
+            summary: "MQTT bridge {{ "{{" }} $labels.bridge {{ "}}" }} message processing is slow"
+            description: >-
+              99th-percentile message processing latency for bridge {{ "{{" }} $labels.bridge {{ "}}" }}
+              topic {{ "{{" }} $labels.topic {{ "}}" }} is
+              {{ "{{" }} printf "%.2f" $value {{ "}}" }}s, above the
+              {{ .Values.prometheusRule.defaultRules.slowMessageProcessing.threshold | default "1.0" }}s threshold.
+        {{- end }}
+
+        {{- if .Values.prometheusRule.defaultRules.controllerAbsent.enabled }}
+        # Fires when the controller's own metrics endpoint stops being scraped.
+        - alert: MQTTBridgeControllerAbsent
+          expr: absent(up{job="{{ include "mqtt-bridge-controller.fullname" . }}"} == 1)
+          for: {{ .Values.prometheusRule.defaultRules.controllerAbsent.for | default "5m" }}
+          labels:
+            severity: {{ .Values.prometheusRule.defaultRules.controllerAbsent.severity | default "critical" }}
+            {{- with .Values.prometheusRule.defaultRules.controllerAbsent.additionalLabels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          annotations:
+            summary: "MQTT bridge controller is absent"
+            description: >-
+              The mqtt-bridge-controller metrics endpoint has not been scraped successfully
+              for more than {{ .Values.prometheusRule.defaultRules.controllerAbsent.for | default "5m" }}.
+              All MQTT bridges may be unmanaged.
+        {{- end }}
+    {{- end }}
+
+    {{- with .Values.prometheusRule.additionalGroups }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}

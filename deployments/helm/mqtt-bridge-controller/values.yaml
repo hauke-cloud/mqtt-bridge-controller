@@ -79,12 +79,141 @@ service:
   metricsPort: 8080
 
 # ─── ServiceMonitor (Prometheus Operator) ────────────────────────────────────
+# Requires the Prometheus Operator CRDs to be installed in the cluster.
 serviceMonitor:
   enabled: false
+
+  # Namespace to deploy the ServiceMonitor into.
+  # Defaults to the release namespace.
   namespace: ""
-  labels: {}
+
+  # Extra labels added to the ServiceMonitor metadata (e.g. to match a
+  # Prometheus Operator selector: release: kube-prometheus-stack).
+  additionalLabels: {}
+
+  annotations: {}
+
+  # How often Prometheus scrapes the metrics endpoint.
   interval: 30s
+
+  # Per-scrape timeout; must be <= interval.
   scrapeTimeout: 10s
+
+  # Path on which the controller exposes Prometheus metrics.
+  path: /metrics
+
+  # Propagate these Service labels to scraped metrics as target labels.
+  targetLabels: []
+
+  # Restrict scraping to services in these namespaces.
+  # Leave empty to scrape from the release namespace only (default).
+  namespaceSelector: {}
+
+  # Set to true to honour labels already present on ingested samples.
+  honorLabels: false
+
+  # Set to true to honour timestamps from the target.
+  honorTimestamps: true
+
+  # http or https. Use https when the metrics endpoint is TLS-protected.
+  scheme: http
+
+  # TLS config when scheme=https.
+  # Refer to: https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.TLSConfig
+  tlsConfig: {}
+
+  # Secret containing a bearer token used for authentication.
+  bearerTokenSecret: {}
+  #  name: my-secret
+  #  key: token
+
+  # Maximum number of samples accepted within a single scrape.
+  sampleLimit: 0
+
+  # Prometheus relabeling applied to scraped targets before ingestion.
+  # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
+  relabelings: []
+  # - sourceLabels: [__meta_kubernetes_pod_label_app]
+  #   targetLabel: app
+
+  # Metric relabeling applied after scraping, before storage.
+  metricRelabelings: []
+  # - sourceLabels: [__name__]
+  #   regex: go_.*
+  #   action: drop
+
+# ─── PrometheusRule (Prometheus Operator) ─────────────────────────────────────
+# Creates a PrometheusRule resource with alerting rules for the MQTT bridges.
+# Requires the Prometheus Operator CRDs to be installed in the cluster.
+prometheusRule:
+  enabled: false
+
+  # Namespace to deploy the PrometheusRule into.
+  # Defaults to the release namespace.
+  namespace: ""
+
+  # Extra labels added to the PrometheusRule metadata (e.g. to match a
+  # Prometheus Operator ruleSelector: release: kube-prometheus-stack).
+  additionalLabels: {}
+
+  annotations: {}
+
+  # Built-in alerting rules — each can be individually disabled or tuned.
+  defaultRules:
+    enabled: true
+
+    # Alert when a bridge stays disconnected for too long.
+    bridgeDisconnected:
+      enabled: true
+      for: 5m
+      severity: warning
+      additionalLabels: {}
+
+    # Alert when a bridge reconnects more than ~2×/min over 10 minutes.
+    # threshold is reconnects-per-second (0.033 ≈ 2/min).
+    highReconnectRate:
+      enabled: true
+      for: 10m
+      threshold: "0.033"
+      severity: warning
+      additionalLabels: {}
+
+    # Alert when a connected bridge stops receiving messages.
+    noMessagesReceived:
+      enabled: true
+      # Observation window — increase() is computed over this duration.
+      window: 1h
+      for: 0m
+      severity: info
+      additionalLabels: {}
+
+    # Alert when p99 message-processing latency exceeds threshold (seconds).
+    slowMessageProcessing:
+      enabled: true
+      for: 5m
+      threshold: "1.0"
+      severity: warning
+      additionalLabels: {}
+
+    # Alert when the controller's own scrape target disappears.
+    controllerAbsent:
+      enabled: true
+      for: 5m
+      severity: critical
+      additionalLabels: {}
+
+  # Fully custom rule groups appended after the default rules group.
+  # Use standard Prometheus rule group format.
+  additionalGroups: []
+  # - name: my-custom-rules
+  #   rules:
+  #     - alert: MyAlert
+  #       expr: some_metric > 0
+  #       for: 1m
+  #       labels:
+  #         severity: info
+  #       annotations:
+  #         summary: "Custom alert"
 
 # ─── RBAC ────────────────────────────────────────────────────────────────────
 rbac:
