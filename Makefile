@@ -38,7 +38,7 @@ generate:
 
 ## Download envtest binaries (used by controller-runtime integration tests)
 setup-envtest:
-	$(SETUP_ENVTEST) use --bin-path /usr/local/kubebuilder/bin
+	$(SETUP_ENVTEST) use --bin-dir /usr/local/kubebuilder/bin
 
 ## Generate CRD + RBAC manifests from kubebuilder markers
 manifests:
