@@ -73,10 +73,12 @@ type SecretKeyRef struct {
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 
-	// +kubebuilder:default=username
+	// Key in the Secret whose value is used as the MQTT username.
+	// Defaults to "username" when empty.
 	UsernameKey string `json:"usernameKey,omitempty"`
 
-	// +kubebuilder:default=password
+	// Key in the Secret whose value is used as the MQTT password.
+	// Defaults to "password" when empty.
 	PasswordKey string `json:"passwordKey,omitempty"`
 }
 

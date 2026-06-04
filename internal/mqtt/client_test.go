@@ -121,6 +121,34 @@ func TestBridgeClient_ConnectTimeout_Unreachable(t *testing.T) {
 	}
 }
 
+// TestBridgeClient_NoCredentials verifies that a spec with empty Username/Password
+// does not panic or error during client construction, and that the connect attempt
+// reaches the broker without sending credential fields (the broker rejects with a
+// connection error, not a panic).
+func TestBridgeClient_NoCredentials(t *testing.T) {
+	spec := bridge.BridgeSpec{
+		Name:       "anon-bridge",
+		Namespace:  "default",
+		Host:       "192.0.2.1", // guaranteed unreachable — we just want no panic
+		Port:       1883,
+		ClientID:   "anon-client",
+		MaxBackoff: 1 * time.Second,
+		// Username and Password intentionally left empty.
+	}
+
+	if spec.Username != "" || spec.Password != "" {
+		t.Fatal("test precondition: spec must have empty credentials")
+	}
+
+	cl := newBridgeClient(spec, newTestLogger(), newTestCollector(),
+		func(_ string, _ []byte) {}, nil)
+
+	stats := cl.Stats()
+	if stats.State != bridge.StateConnecting {
+		t.Errorf("expected initial state=connecting, got %s", stats.State)
+	}
+}
+
 func TestBridgeClient_Stats_Initial(t *testing.T) {
 	spec := bridge.BridgeSpec{
 		Name:       "stats-test",

@@ -150,8 +150,10 @@ func (c *BridgeClient) connect() error {
 	opts := pahomqtt.NewClientOptions()
 	opts.AddBroker(fmt.Sprintf("tcp://%s:%d", c.spec.Host, c.spec.Port))
 	opts.SetClientID(c.spec.ClientID)
-	opts.SetUsername(c.spec.Username)
-	opts.SetPassword(c.spec.Password)
+	if c.spec.Username != "" {
+		opts.SetUsername(c.spec.Username)
+		opts.SetPassword(c.spec.Password)
+	}
 	opts.SetAutoReconnect(false) // handled by our own run loop
 	opts.SetKeepAlive(30 * time.Second)
 	opts.SetPingTimeout(10 * time.Second)

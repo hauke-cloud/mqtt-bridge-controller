@@ -62,10 +62,14 @@ spec:
                   namespace:
                     type: string
                   passwordKey:
-                    default: password
+                    description: |-
+                      Key in the Secret whose value is used as the MQTT password.
+                      Defaults to "password" when empty.
                     type: string
                   usernameKey:
-                    default: username
+                    description: |-
+                      Key in the Secret whose value is used as the MQTT username.
+                      Defaults to "username" when empty.
                     type: string
                 required:
                 - name
