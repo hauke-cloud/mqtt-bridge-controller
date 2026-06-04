@@ -1,0 +1,67 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+    tags: ["v*"]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  GO_VERSION: "1.26"
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+
+    steps:
+      - name: Build, Test, and Release
+        uses: hauke-cloud/inpacken-un-af-dor-mit@v1
+        with:
+          # Language
+          language: "go"
+          language-version: ${{ env.GO_VERSION }}
+
+          # Container Build
+          dockerfile-path: "./Dockerfile"
+          docker-context: "."
+          platforms: "linux/amd64"
+
+          # Registry
+          registry: "ghcr.io"
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
+          image-name: ${{ github.repository }}
+
+          # Helm
+          enable-helm: "true"
+          helm-chart-path: "./deployments/helm"
+          helm-chart-name: "mqtt-bridge-controller"
+
+          # Testing
+          run-tests: "true"
+          test-command: "go test -v -race -coverprofile=coverage.out -covermode=atomic ./..."
+          enable-coverage: "true"
+
+          # Linting
+          run-lint: "true"
+          lint-command: "gofmt -s -l . && go vet ./..."
+
+          # Pre-build: Generate CRDs and manifests
+          pre-build-command: |
+            echo "Generating CRDs and manifests..."
+            make generate
+            make manifests
+            make setup-envtest
+
+          # Build Arguments
+          build-args: |
+            GO_VERSION=${{ env.GO_VERSION }}
+            CGO_ENABLED=0
+
+          # Release
+          enable-release: "true"
+          release-draft: "false"

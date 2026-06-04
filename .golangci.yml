@@ -1,0 +1,32 @@
+run:
+  timeout: 5m
+  go: "1.23"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - revive
+    - gofmt
+    - goimports
+    - unparam
+    - unconvert
+    - misspell
+    - ineffassign
+    - bodyclose
+
+linters-settings:
+  revive:
+    rules:
+      - name: exported
+      - name: error-strings
+      - name: error-return
+  goimports:
+    local-prefixes: github.com/hauke-cloud/mqtt-bridge-controller
+
+issues:
+  exclude-rules:
+    - path: "_test.go"
+      linters:
+        - errcheck

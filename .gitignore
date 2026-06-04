@@ -9,6 +9,9 @@ Thumbs.db
 *.temp
 **/*.unsealed
 
+# Claude
+.claude
+
 # Python
 __pycache__/
 *.py[cod]

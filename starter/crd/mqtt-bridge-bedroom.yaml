@@ -1,0 +1,26 @@
+apiVersion: iot.hauke.cloud/v1alpha1
+kind: MQTTBridge
+metadata:
+  name: bedroom
+  namespace: mqtt
+spec:
+  host: "mqtt.home.hauke.cloud"
+  port: 1883
+  deviceType: tasmota
+  bridgeName: tasmota_bedroom
+  credentialsSecretRef:
+    namespace: iot
+    name: mqtt-bridge-credentials
+    usernameKey: username # default: username
+    passwordKey: password # default: password
+  topics:
+    - topic: "tele/tasmota_bedroom/SENSOR"
+      type: "telemetry"
+    - topic: "stat/tasmota_bedroom/RESULT"
+      type: "result"
+    - topic: "tele/tasmota_bedroom/STATE"
+      type: "state"
+  discoveryEnabled: true
+status:
+  connectionState: connected
+  lastConnectedTime: "2026-06-04T10:46:30Z"

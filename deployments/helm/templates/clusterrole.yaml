@@ -1,0 +1,31 @@
+{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "mqtt-bridge-controller.fullname" . }}
+  labels:
+    {{- include "mqtt-bridge-controller.labels" . | nindent 4 }}
+rules:
+  # MQTTBridge CRD management
+  - apiGroups: ["iot.hauke.cloud"]
+    resources: ["mqttbridges"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["iot.hauke.cloud"]
+    resources: ["mqttbridges/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["iot.hauke.cloud"]
+    resources: ["mqttbridges/finalizers"]
+    verbs: ["update"]
+  # Read credentials from Secrets
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+  # Emit Kubernetes events
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  # Leader election
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+{{- end }}

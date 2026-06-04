@@ -1,0 +1,131 @@
+# Default values for mqtt-bridge-controller.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/hauke-cloud/mqtt-bridge-controller
+  pullPolicy: IfNotPresent
+  tag: ""  # defaults to .Chart.AppVersion
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+# ─── Controller configuration ────────────────────────────────────────────────
+controller:
+  # Log level: debug, info, warn, error
+  logLevel: info
+
+  # Enable leader election (required when running >1 replica)
+  leaderElect: false
+
+  # Address for the controller-runtime Prometheus metrics endpoint.
+  # This is separate from the REST API /metrics endpoint.
+  metricsAddr: ":8080"
+
+  # Health probe address (used by liveness/readiness probes).
+  probeAddr: ":8081"
+
+# ─── REST API ─────────────────────────────────────────────────────────────────
+api:
+  # Bind address for the REST API and Prometheus /metrics endpoint.
+  addr: ":8443"
+
+# ─── mTLS configuration ───────────────────────────────────────────────────────
+# The REST API enforces mutual TLS when tls.enabled=true and tls.ca is set.
+# Clients must present a certificate signed by the CA in tls.ca.
+#
+# How to generate self-signed certs for development:
+#
+#   # CA key + cert
+#   openssl req -x509 -newkey rsa:4096 -keyout ca.key -out ca.crt \
+#     -days 3650 -nodes -subj "/CN=mqtt-bridge-ca"
+#
+#   # Server key + cert (signed by CA)
+#   openssl req -newkey rsa:4096 -keyout server.key -out server.csr \
+#     -nodes -subj "/CN=mqtt-bridge-controller"
+#   openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key \
+#     -CAcreateserial -out server.crt -days 365
+#
+#   # Client key + cert (signed by CA)
+#   openssl req -newkey rsa:4096 -keyout client.key -out client.csr \
+#     -nodes -subj "/CN=api-client"
+#   openssl x509 -req -in client.csr -CA ca.crt -CAkey ca.key \
+#     -CAcreateserial -out client.crt -days 365
+#
+tls:
+  enabled: true
+
+  # Existing secret with keys: tls.crt, tls.key, ca.crt
+  # If set, the chart will NOT create the secret (bring-your-own).
+  existingSecret: ""
+
+  # Provide cert/key/CA inline (base64-encoded PEM). Used when existingSecret=""
+  # Leave empty strings to skip inline secret creation.
+  crt: ""   # base64-encoded server certificate PEM
+  key: ""   # base64-encoded server private key PEM
+  ca: ""    # base64-encoded CA certificate PEM (used for mTLS client verification)
+
+  # Mount path inside the container.
+  mountPath: /tls
+
+# ─── Service ─────────────────────────────────────────────────────────────────
+service:
+  type: ClusterIP
+  # REST API port (exposed externally)
+  apiPort: 8443
+  # Metrics port (controller-runtime, usually internal only)
+  metricsPort: 8080
+
+# ─── ServiceMonitor (Prometheus Operator) ────────────────────────────────────
+serviceMonitor:
+  enabled: false
+  namespace: ""
+  labels: {}
+  interval: 30s
+  scrapeTimeout: 10s
+
+# ─── RBAC ────────────────────────────────────────────────────────────────────
+rbac:
+  create: true
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# ─── Pod configuration ───────────────────────────────────────────────────────
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+    - ALL
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# ─── CRD installation ────────────────────────────────────────────────────────
+# When true, the Helm chart installs the MQTTBridge CRD.
+# Set to false if you manage CRDs separately (e.g., via GitOps).
+installCRDs: true

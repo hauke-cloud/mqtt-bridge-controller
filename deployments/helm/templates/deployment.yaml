@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mqtt-bridge-controller.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mqtt-bridge-controller.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "mqtt-bridge-controller.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        # Restart pods when the TLS secret changes.
+        {{- if .Values.tls.enabled }}
+        checksum/tls: {{ include (print $.Template.BasePath "/tls-secret.yaml") . | sha256sum }}
+        {{- end }}
+      labels:
+        {{- include "mqtt-bridge-controller.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "mqtt-bridge-controller.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: controller
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --log-level={{ .Values.controller.logLevel }}
+            - --metrics-addr={{ .Values.controller.metricsAddr }}
+            - --probe-addr={{ .Values.controller.probeAddr }}
+            - --api-addr={{ .Values.api.addr }}
+            {{- if .Values.controller.leaderElect }}
+            - --leader-elect
+            {{- end }}
+            {{- if .Values.tls.enabled }}
+            - --tls-cert={{ .Values.tls.mountPath }}/tls.crt
+            - --tls-key={{ .Values.tls.mountPath }}/tls.key
+            - --tls-ca={{ .Values.tls.mountPath }}/ca.crt
+            {{- end }}
+          ports:
+            - name: api
+              containerPort: 8443
+              protocol: TCP
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+            - name: health
+              containerPort: 8081
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.tls.enabled }}
+          volumeMounts:
+            - name: tls
+              mountPath: {{ .Values.tls.mountPath }}
+              readOnly: true
+          {{- end }}
+      {{- if .Values.tls.enabled }}
+      volumes:
+        - name: tls
+          secret:
+            secretName: {{ include "mqtt-bridge-controller.tlsSecretName" . }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,0 +1,19 @@
+apiVersion: v2
+name: mqtt-bridge-controller
+description: Kubernetes controller that manages MQTTBridge CRDs and maintains connections to MQTT brokers
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - mqtt
+  - iot
+  - kubernetes
+  - controller
+  - tasmota
+  - zigbee
+home: https://github.com/hauke-cloud/mqtt-bridge-controller
+sources:
+  - https://github.com/hauke-cloud/mqtt-bridge-controller
+maintainers:
+  - name: Hauke Mettendorf
+    email: hauke@mettendorf.it
