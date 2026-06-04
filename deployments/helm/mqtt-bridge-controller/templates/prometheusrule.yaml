@@ -51,8 +51,8 @@ spec:
             summary: "MQTT bridge {{ "{{" }} $labels.bridge {{ "}}" }} is reconnecting frequently"
             description: >-
               MQTT bridge {{ "{{" }} $labels.bridge {{ "}}" }} in namespace {{ "{{" }} $labels.namespace {{ "}}" }}
-              has reconnected {{ "{{" }} printf "%.1f" (mul (rate (mqttbridge_reconnect_total[10m])) 60) {{ "}}" }} times/min
-              over the last 10 minutes.
+              is reconnecting at {{ "{{" }} printf "%.4f" $value {{ "}}" }} reconnects/sec
+              (threshold {{ .Values.prometheusRule.defaultRules.highReconnectRate.threshold | default "0.033" }}/sec).
         {{- end }}
 
         {{- if .Values.prometheusRule.defaultRules.noMessagesReceived.enabled }}
