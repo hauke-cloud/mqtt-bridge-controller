@@ -62,8 +62,10 @@ spec:
                   Omit entirely for anonymous brokers.
                 properties:
                   name:
+                    minLength: 1
                     type: string
                   namespace:
+                    minLength: 1
                     type: string
                   passwordKey:
                     description: Key in the Secret whose value is used as the MQTT

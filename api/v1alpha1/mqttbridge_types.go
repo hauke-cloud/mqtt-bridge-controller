@@ -68,9 +68,11 @@ const (
 
 type SecretKeyRef struct {
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
 	Namespace string `json:"namespace"`
 
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
 	// Key in the Secret whose value is used as the MQTT username.

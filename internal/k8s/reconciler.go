@@ -161,8 +161,12 @@ func (r *MQTTBridgeReconciler) buildBridgeSpec(
 		})
 	}
 
-	if br.Spec.CredentialsSecretRef != nil {
-		username, password, err := r.lookupCredentials(ctx, br.Spec.CredentialsSecretRef)
+	if ref := br.Spec.CredentialsSecretRef; ref != nil && ref.Name != "" {
+		ns := ref.Namespace
+		if ns == "" {
+			ns = br.Namespace
+		}
+		username, password, err := r.lookupCredentials(ctx, ns, ref)
 		if err != nil {
 			return bridge.BridgeSpec{}, fmt.Errorf("%w: %w", bridge.ErrCredentialLookup, err)
 		}
@@ -175,12 +179,13 @@ func (r *MQTTBridgeReconciler) buildBridgeSpec(
 
 func (r *MQTTBridgeReconciler) lookupCredentials(
 	ctx context.Context,
+	namespace string,
 	ref *v1alpha1.SecretKeyRef,
 ) (username, password string, err error) {
 	var secret corev1.Secret
-	key := types.NamespacedName{Name: ref.Name, Namespace: ref.Namespace}
+	key := types.NamespacedName{Name: ref.Name, Namespace: namespace}
 	if err := r.Get(ctx, key, &secret); err != nil {
-		return "", "", fmt.Errorf("get secret %s/%s: %w", ref.Namespace, ref.Name, err)
+		return "", "", fmt.Errorf("get secret %s/%s: %w", namespace, ref.Name, err)
 	}
 
 	usernameKey := ref.UsernameKey
