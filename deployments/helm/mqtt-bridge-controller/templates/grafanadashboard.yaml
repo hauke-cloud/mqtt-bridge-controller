@@ -1,0 +1,199 @@
+{{- if .Values.grafanaDashboard.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mqtt-bridge-controller.fullname" . }}-dashboard
+  namespace: {{ .Values.grafanaDashboard.namespace | default .Release.Namespace }}
+  labels:
+    {{- include "mqtt-bridge-controller.labels" . | nindent 4 }}
+    grafana_dashboard: "1"
+    {{- with .Values.grafanaDashboard.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.grafanaDashboard.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  mqtt-bridge-controller.json: |-
+    {
+      "title": "MQTT Bridge Controller",
+      "uid": "mqtt-bridge-controller",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": {"from": "now-3h", "to": "now"},
+      "tags": ["iot", "mqtt"],
+      "templating": {
+        "list": [
+          {
+            "current": {},
+            "hide": 0,
+            "includeAll": false,
+            "multi": false,
+            "name": "datasource",
+            "options": [],
+            "query": "prometheus",
+            "refresh": 1,
+            "type": "datasource"
+          },
+          {
+            "current": {},
+            "datasource": {"type": "prometheus", "uid": "${datasource}"},
+            "definition": "label_values(mqttbridge_connection_state, namespace)",
+            "hide": 0,
+            "includeAll": false,
+            "multi": false,
+            "name": "namespace",
+            "query": {"query": "label_values(mqttbridge_connection_state, namespace)", "refId": "StandardVariableQuery"},
+            "refresh": 2,
+            "sort": 1,
+            "type": "query"
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1,
+          "title": "Bridge Connection State",
+          "type": "stat",
+          "gridPos": {"h": 4, "w": 24, "x": 0, "y": 0},
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+            "textMode": "value_and_name"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {"text": "Disconnected", "color": "red", "index": 0},
+                    "1": {"text": "Connected", "color": "green", "index": 1}
+                  }
+                }
+              ],
+              "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]},
+              "color": {"mode": "thresholds"}
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "${datasource}"},
+              "expr": "mqttbridge_connection_state{namespace=\"$namespace\"}",
+              "legendFormat": "{{`{{bridge}}`}}",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "Messages Received Rate",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "options": {
+            "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "mean"]},
+            "tooltip": {"mode": "multi"}
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "custom": {"fillOpacity": 5, "spanNulls": true}
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "${datasource}"},
+              "expr": "rate(mqttbridge_messages_received_total{namespace=\"$namespace\"}[5m])",
+              "legendFormat": "{{`{{bridge}}`}} / {{`{{topic}}`}}",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "title": "Reconnect Rate",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "options": {
+            "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"]},
+            "tooltip": {"mode": "multi"}
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {"fillOpacity": 5, "spanNulls": true}
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "${datasource}"},
+              "expr": "rate(mqttbridge_reconnect_total{namespace=\"$namespace\"}[10m])",
+              "legendFormat": "{{`{{bridge}}`}}",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "title": "Message Processing Latency (P99)",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "options": {
+            "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"]},
+            "tooltip": {"mode": "multi"}
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": {"fillOpacity": 5, "spanNulls": true}
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "${datasource}"},
+              "expr": "histogram_quantile(0.99, sum by (bridge, namespace, topic, le) (rate(mqttbridge_message_processing_seconds_bucket{namespace=\"$namespace\"}[5m])))",
+              "legendFormat": "{{`{{bridge}}`}} / {{`{{topic}}`}}",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "title": "Controller Reconcile Errors",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "options": {
+            "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "sum"]},
+            "tooltip": {"mode": "multi"}
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {"fillOpacity": 5, "spanNulls": true}
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "${datasource}"},
+              "expr": "rate(controller_runtime_reconcile_errors_total{job=~\".*mqtt-bridge-controller.*\"}[5m])",
+              "legendFormat": "{{`{{controller}}`}}",
+              "refId": "A"
+            }
+          ]
+        }
+      ]
+    }
+{{- end }}

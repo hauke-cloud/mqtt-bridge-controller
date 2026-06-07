@@ -258,3 +258,18 @@ affinity: {}
 # When true, the Helm chart installs the MQTTBridge CRD.
 # Set to false if you manage CRDs separately (e.g., via GitOps).
 installCRDs: true
+
+# ─── Grafana Dashboard (ConfigMap) ───────────────────────────────────────────
+# Creates a ConfigMap with the Grafana dashboard JSON, labelled grafana_dashboard=1
+# so the Grafana sidecar picks it up automatically.
+grafanaDashboard:
+  enabled: false
+
+  # Namespace to deploy the ConfigMap into.
+  # Defaults to the release namespace.
+  namespace: ""
+
+  # Extra labels added to the ConfigMap metadata.
+  additionalLabels: {}
+
+  annotations: {}
